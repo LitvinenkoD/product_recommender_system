@@ -1,9 +1,7 @@
 import json
 import pandas as pd
 import utils
-
-
-# B0006GVNOA
+import ds_methods
 
 
 # all files
@@ -18,80 +16,45 @@ with open(f5, 'r') as json_file:
   for line in json_file:
     data.append(json.loads(line.strip()))
 
+# initialization
+users, items = utils.generate_users_items_list(data)
+matrix, m, n = utils.generate_matrix(users, items, data)
 
-data2 = pd.DataFrame(data)
-# print(len(pd.unique(data2["reviewerID"])))
-# print(len(pd.unique(data2["asin"])))
+# splitting matrix into training/testing
+matrix, testing_data = utils.training_split_matrix(matrix)
 
-
-
-users = set()
-items = set()
-for entry in data:
-  users.add(entry['reviewerID'])
-  items.add(entry['asin'])
-
-users = sorted(list(users))
-items = sorted(list(items))
+# descriptive measures
+mean_rating_by_user, mean_rating_by_item = ds_methods.find_user_item_mean_ratings(users, items, matrix)
+matrix_mean = ds_methods.find_matrix_mean(matrix)
 
 
-## Matrix initialization
-m = len(users)
-n = len(items)
-matrix = [[0 for _ in range(n)] for _ in  range(m)]
+# this part isn't finished yet, but I got tired. Probably I will finish it later, but you can still use it as is
+
+for i in range(m):
+  for j in range(n):
+    if matrix[i][j] == 0:
+      matrix_mean_method_prediction = ds_methods.matrix_mean_method(matrix_mean)
+      baseline_estimate_method_prediction = ds_methods.baseline_estimate_method(users, items, matrix_mean, mean_rating_by_user, mean_rating_by_item, i, j)
+      # to create a new way of predicting a rating, create variable your_method_prediction = ... here
+      
+      matrix[i][j] = {
+        'overall_predictions': [
+          {'matrix_mean_method': matrix_mean_method_prediction},
+          {'baseline_estimate_method': baseline_estimate_method_prediction}
+          # and then add it to the overall predictions list in this format
+          ]}
 
 
-## Matrix population
-for entry in data:
-  user = entry['reviewerID']
-  item = entry['asin']
 
-  user_index = users.index(user)
-  item_index = items.index(item)
+evaluation_results =  ds_methods.evaluate_recommendation(matrix, testing_data)
 
-  data_of_interest = {'overall': entry['overall']}
-  matrix[user_index][item_index] = data_of_interest
+for key, value in evaluation_results.items():
+  for entry in evaluation_results[key]:
+    print(key, entry)
 
 
+# uncomment this if you want to see the matrix
 # utils.displayMatrix(m, n, matrix)
 
-## Finding mean rating by user and by item
 
-# User
-mean_rating_by_user = {}
-for i in range(len(users)):   # Fix i, iterate j
-  user_ratings_sum = 0
-  ratings_count = 0
-  for j in range(len(items)):
-    if matrix[i][j] != 0:
-      user_ratings_sum += matrix[i][j]['overall']
-      ratings_count += 1
-
-  if ratings_count != 0:
-    user_mean = user_ratings_sum / ratings_count
-    mean_rating_by_user[users[i]] = user_mean
-  else:
-    mean_rating_by_user[users[i]] = None
-
-
-# Item
-mean_rating_by_item = {}
-for j in range(len(items)):   # Fix j, iterate i
-  item_ratings_sum = 0
-  ratings_count = 0
-  for i in range(len(users)):
-    if matrix[i][j] != 0:
-      item_ratings_sum += matrix[i][j]['overall']
-      ratings_count += 1
-
-  if ratings_count != 0:
-    item_mean = item_ratings_sum / ratings_count
-    mean_rating_by_item[items[j]] = item_mean
-  else:
-    mean_rating_by_item[items[j]] = None
-
-
-print(len(mean_rating_by_user))
-print(len(mean_rating_by_item))
-      
 
